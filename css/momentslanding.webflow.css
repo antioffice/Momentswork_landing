@@ -327,9 +327,10 @@ p {
   align-items: center;
   border-bottom: 0px none #69b9ff;
   background-color: rgba(0, 0, 0, .9);
-  background-image: none;
-  background-position: 0px 0px;
-  background-size: auto;
+  background-image: -webkit-linear-gradient(270deg, rgba(0, 0, 0, .5), rgba(0, 0, 0, .5)), url('../images/moments-bg-cropped-copy-2.jpg');
+  background-image: linear-gradient(180deg, rgba(0, 0, 0, .5), rgba(0, 0, 0, .5)), url('../images/moments-bg-cropped-copy-2.jpg');
+  background-position: 0px 0px, 50% 50%;
+  background-size: auto, cover;
   text-align: center;
 }
 
@@ -361,6 +362,13 @@ p {
   background-repeat: repeat, no-repeat;
 }
 
+.hero-section.centered.realestate {
+  background-image: -webkit-linear-gradient(270deg, rgba(0, 0, 0, .5), rgba(0, 0, 0, .5)), url('../images/485997992--.jpg');
+  background-image: linear-gradient(180deg, rgba(0, 0, 0, .5), rgba(0, 0, 0, .5)), url('../images/485997992--.jpg');
+  background-position: 0px 0px, 50% 0px;
+  background-size: auto, cover;
+}
+
 .hero-heading {
   max-width: 450px;
   margin-bottom: 35px;
@@ -384,7 +392,7 @@ p {
   margin-bottom: 25px;
   font-family: 'Aktivgrotesk light', sans-serif;
   color: #fff;
-  font-size: 18px;
+  font-size: 17px;
   line-height: 1.4;
   font-weight: 300;
   text-align: left;
@@ -1045,8 +1053,8 @@ p {
   top: 0px;
   right: 0px;
   z-index: 0;
-  display: block;
-  min-height: 90vh;
+  display: none;
+  min-height: 95vh;
   -webkit-box-pack: center;
   -webkit-justify-content: center;
   -ms-flex-pack: center;
@@ -1588,6 +1596,9 @@ html.w-mod-js *[data-ix="scale-on-scroll"] {
     position: relative;
     padding-top: 0px;
     padding-bottom: 0px;
+    background-image: -webkit-linear-gradient(270deg, null, null), url('../images/moments-bg-cropped-copy-2.jpg');
+    background-image: linear-gradient(180deg, null, null), url('../images/moments-bg-cropped-copy-2.jpg');
+    background-size: auto, cover;
   }
   .hero-heading {
     font-size: 39px;
@@ -1689,9 +1700,10 @@ html.w-mod-js *[data-ix="scale-on-scroll"] {
     padding-top: 0px;
     padding-bottom: 0px;
     background-color: #676770;
-    background-image: none;
-    background-position: 0px 0px;
-    background-size: auto;
+    background-image: -webkit-linear-gradient(270deg, rgba(0, 0, 0, .5), rgba(0, 0, 0, .5)), url('../images/moments-bg-cropped-copy-2.jpg');
+    background-image: linear-gradient(180deg, rgba(0, 0, 0, .5), rgba(0, 0, 0, .5)), url('../images/moments-bg-cropped-copy-2.jpg');
+    background-position: 0px 0px, 50% 50%;
+    background-size: auto, cover;
   }
   .hero-section.centered.bcn {
     background-image: -webkit-linear-gradient(270deg, null, null), url('../images/coverbcn.jpg');
