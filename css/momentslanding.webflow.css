@@ -80,7 +80,7 @@ p {
   border-radius: 40px;
   background-color: #1a60fe;
   background-image: none;
-  box-shadow: 0 0 20px 0 #000;
+  box-shadow: 0 0 20px 0 rgba(0, 0, 0, .1);
   -webkit-transition: box-shadow 300ms ease;
   transition: box-shadow 300ms ease;
   font-family: 'Aktivgrotesk light', sans-serif;
@@ -430,6 +430,24 @@ p {
   padding-left: 20px;
 }
 
+.hero-subheading.conditions {
+  margin-top: 25px;
+  border-radius: 40px;
+  font-size: 17px;
+  text-align: center;
+  text-decoration: none;
+}
+
+.hero-subheading.conditions.dark {
+  color: #757575;
+  text-decoration: none;
+}
+
+.hero-subheading.conditions.dark:hover {
+  color: #757575;
+  text-decoration: none;
+}
+
 .hollow-button {
   display: inline-block;
   margin-right: 10px;
@@ -695,6 +713,7 @@ p {
 }
 
 .link:hover {
+  color: #000;
   text-decoration: none;
 }
 
@@ -703,7 +722,7 @@ p {
 }
 
 .link.white {
-  color: hsla(0, 0%, 100%, .5);
+  color: #fff;
 }
 
 .descriptor {
@@ -722,7 +741,7 @@ p {
   font-family: 'Aktivgrotesk light', sans-serif;
   color: #fff;
   font-size: 30px;
-  text-align: left;
+  text-align: center;
   letter-spacing: 0.2px;
 }
 
@@ -1274,6 +1293,7 @@ p {
 }
 
 .termtext {
+  margin-bottom: 0px;
   font-size: 14px;
   line-height: 1.4;
 }
@@ -1306,17 +1326,32 @@ p {
 }
 
 .list {
+  display: block;
   padding-left: 20px;
+  line-height: 10px;
+  list-style-type: square;
 }
 
 .item {
   margin-bottom: 10px;
   padding-right: 10px;
   padding-left: 30px;
+  direction: ltr;
+  line-height: 1.4;
+  list-style-type: decimal;
 }
 
 .item:hover {
   color: #000;
+}
+
+.item.termtext {
+  margin-bottom: 0px;
+  list-style-type: decimal;
+}
+
+.item.termtext:hover {
+  color: #757575;
 }
 
 .smaller_text {
@@ -1421,6 +1456,12 @@ p {
   color: #000;
 }
 
+.bolder.par {
+  display: block;
+  margin-top: 20px;
+  padding-top: 0px;
+}
+
 .paragraph {
   margin-bottom: 20px;
 }
@@ -1438,6 +1479,32 @@ p {
 .wrap {
   width: 100vw;
   max-width: 450px;
+}
+
+.text-span {
+  text-align: center;
+}
+
+.ordered-list {
+  list-style-type: decimal;
+}
+
+.link2 {
+  display: inline;
+  text-decoration: underline;
+}
+
+.text-span-2 {
+  display: inline-block;
+}
+
+.point {
+  position: relative;
+  bottom: 96px;
+  display: inline;
+  margin-bottom: 0px;
+  padding-bottom: 0px;
+  color: transparent;
 }
 
 html.w-mod-js *[data-ix="fade-in-bottom-page-loads"] {

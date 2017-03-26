@@ -707,7 +707,13 @@
   Webflow.define('backgroundVideo', module.exports = function ($) {
 
     function ready () {
-      var backgroundVideoNodes = $(document).find('.w-background-video');
+      // Prevent default render while in-app
+      if (Webflow.env()) {
+        return;
+      }
+
+      var backgroundVideoNodes = $(document).find('.w-background-video').not('.w-background-video-atom');
+
       if (backgroundVideoNodes.length === 0) {
         return;
       }
@@ -767,6 +773,7 @@
     var namespace = '.w-webflow-badge';
     var location = window.location;
     var isPhantom = /PhantomJS/i.test(navigator.userAgent);
+    var brandElement;
 
     // -----------------------------------
     // Module methods
@@ -778,12 +785,13 @@
         shouldBrand = true;
       }
       if (shouldBrand && !isPhantom) {
+        brandElement = brandElement || createBadge();
         ensureBrand();
         setTimeout(ensureBrand, 500);
       }
     };
 
-    var brandElement = (function() {
+    function createBadge() {
       var $brand = $('<a class="w-webflow-badge"></a>')
       .attr('href', 'https://webflow.com?utm_campaign=brandjs');
 
@@ -799,7 +807,7 @@
 
       $brand.append($logoArt, $logoText);
       return $brand[0];
-    }());
+    }
 
     function ensureBrand() {
       var found = $body.children(namespace);
@@ -821,268 +829,6 @@
       if (!inEditor) {
         $body.append(brandElement);
       }
-    }
-
-    // Export module
-    return api;
-  });
-  });
-
-  var webflowIxEvents = __commonjs(function (module) {
-  'use strict';
-
-  /**
-   * Webflow: IX Event triggers for other modules
-   */
-
-  var $ = window.jQuery;
-  var api = {};
-  var eventQueue = [];
-  var namespace = '.w-ix';
-
-  var eventTriggers = {
-    reset: function(i, el) {
-      el.__wf_intro = null;
-    },
-    intro: function(i, el) {
-      if (el.__wf_intro) return;
-      el.__wf_intro = true;
-      $(el).triggerHandler(api.types.INTRO);
-    },
-    outro: function(i, el) {
-      if (!el.__wf_intro) return;
-      el.__wf_intro = null;
-      $(el).triggerHandler(api.types.OUTRO);
-    }
-  };
-
-  api.triggers = {};
-
-  api.types = {
-    INTRO: 'w-ix-intro' + namespace,
-    OUTRO: 'w-ix-outro' + namespace
-  };
-
-  // Trigger any events in queue + restore trigger methods
-  api.init = function() {
-    var count = eventQueue.length;
-    for (var i = 0; i < count; i++) {
-      var memo = eventQueue[i];
-      memo[0](0, memo[1]);
-    }
-    eventQueue = [];
-    $.extend(api.triggers, eventTriggers);
-  };
-
-  // Replace all triggers with async wrapper to queue events until init
-  api.async = function() {
-    for (var key in eventTriggers) {
-      var func = eventTriggers[key];
-      if (!eventTriggers.hasOwnProperty(key)) continue;
-
-      // Replace trigger method with async wrapper
-      api.triggers[key] = function(i, el) {
-        eventQueue.push([func, el]);
-      };
-    }
-  };
-
-  // Default triggers to async queue
-  api.async();
-
-  module.exports = api;
-  });
-
-  var require$$0$3 = (webflowIxEvents && typeof webflowIxEvents === 'object' && 'default' in webflowIxEvents ? webflowIxEvents['default'] : webflowIxEvents);
-
-  var webflowDropdown = __commonjs(function (module) {
-  /**
-   * Webflow: Dropdown component
-   */
-
-  var Webflow = require$$0$1;
-  var IXEvents = require$$0$3;
-
-  Webflow.define('dropdown', module.exports = function($, _) {
-    var api = {};
-    var $doc = $(document);
-    var $dropdowns;
-    var designer;
-    var inApp = Webflow.env();
-    var touch = Webflow.env.touch;
-    var namespace = '.w-dropdown';
-    var stateOpen = 'w--open';
-    var closeEvent = 'w-close' + namespace;
-    var ix = IXEvents.triggers;
-
-    // -----------------------------------
-    // Module methods
-
-    api.ready = api.design = api.preview = init;
-
-    // -----------------------------------
-    // Private methods
-
-    function init() {
-      designer = inApp && Webflow.env('design');
-
-      // Find all instances on the page
-      $dropdowns = $doc.find(namespace);
-      $dropdowns.each(build);
-    }
-
-    function build(i, el) {
-      var $el = $(el);
-
-      // Store state in data
-      var data = $.data(el, namespace);
-      if (!data) data = $.data(el, namespace, { open: false, el: $el, config: {} });
-      data.list = $el.children('.w-dropdown-list');
-      data.toggle = $el.children('.w-dropdown-toggle');
-      data.links = data.list.children('.w-dropdown-link');
-      data.outside = outside(data);
-      data.complete = complete(data);
-      data.leave = leave(data);
-
-      // Remove old events
-      $el.off(namespace);
-      data.toggle.off(namespace);
-
-      // Set config from data attributes
-      configure(data);
-
-      if (data.nav) data.nav.off(namespace);
-      data.nav = $el.closest('.w-nav');
-      data.nav.on(closeEvent, handler(data));
-
-      // Add events based on mode
-      if (designer) {
-        $el.on('setting' + namespace, handler(data));
-      } else {
-        data.toggle.on('tap' + namespace, toggle(data));
-        if (data.config.hover) {
-          data.toggle.on('mouseenter' + namespace, enter(data));
-        }
-        $el.on(closeEvent, handler(data));
-        // Close in preview mode
-        inApp && close(data);
-      }
-    }
-
-    function configure(data) {
-      data.config = {
-        hover: Boolean(data.el.attr('data-hover')) && !touch,
-        delay: Number(data.el.attr('data-delay')) || 0
-      };
-    }
-
-    function handler(data) {
-      return function(evt, options) {
-        options = options || {};
-
-        if (evt.type === 'w-close') {
-          return close(data);
-        }
-
-        if (evt.type === 'setting') {
-          configure(data);
-          options.open === true && open(data, true);
-          options.open === false && close(data, true);
-          return;
-        }
-      };
-    }
-
-    function toggle(data) {
-      return _.debounce(function() {
-        data.open ? close(data) : open(data);
-      });
-    }
-
-    function open(data) {
-      if (data.open) return;
-      closeOthers(data);
-      data.open = true;
-      data.list.addClass(stateOpen);
-      data.toggle.addClass(stateOpen);
-      ix.intro(0, data.el[0]);
-      Webflow.redraw.up();
-
-      // Listen for tap outside events
-      if (!designer) $doc.on('tap' + namespace, data.outside);
-      if (data.hovering) data.el.on('mouseleave' + namespace, data.leave);
-
-      // Clear previous delay
-      window.clearTimeout(data.delayId);
-    }
-
-    function close(data, immediate) {
-      if (!data.open) return;
-
-      // Do not close hover-based menus if currently hovering
-      if (data.config.hover && data.hovering) return;
-
-      data.open = false;
-      var config = data.config;
-      ix.outro(0, data.el[0]);
-
-      // Stop listening for tap outside events
-      $doc.off('tap' + namespace, data.outside);
-      data.el.off('mouseleave' + namespace, data.leave);
-
-      // Clear previous delay
-      window.clearTimeout(data.delayId);
-
-      // Skip delay during immediate
-      if (!config.delay || immediate) return data.complete();
-
-      // Optionally wait for delay before close
-      data.delayId = window.setTimeout(data.complete, config.delay);
-    }
-
-    function closeOthers(data) {
-      var self = data.el[0];
-      $dropdowns.each(function(i, other) {
-        var $other = $(other);
-        if ($other.is(self) || $other.has(self).length) return;
-        $other.triggerHandler(closeEvent);
-      });
-    }
-
-    function outside(data) {
-      // Unbind previous tap handler if it exists
-      if (data.outside) $doc.off('tap' + namespace, data.outside);
-
-      // Close menu when tapped outside
-      return _.debounce(function(evt) {
-        if (!data.open) return;
-        var $target = $(evt.target);
-        if ($target.closest('.w-dropdown-toggle').length) return;
-        if (!data.el.is($target.closest(namespace))) {
-          close(data);
-        }
-      });
-    }
-
-    function complete(data) {
-      return function() {
-        data.list.removeClass(stateOpen);
-        data.toggle.removeClass(stateOpen);
-      };
-    }
-
-    function enter(data) {
-      return function() {
-        data.hovering = true;
-        open(data);
-      };
-    }
-
-    function leave(data) {
-      return function() {
-        data.hovering = false;
-        close(data);
-      };
     }
 
     // Export module
@@ -1221,9 +967,10 @@
     var retro = window.XDomainRequest && !window.atob;
     var namespace = '.w-form';
     var siteId;
-    var emailField = /e(\-)?mail/i;
+    var emailField = /e(-)?mail/i;
     var emailValue = /^\S+@\S+$/;
     var alert = window.alert;
+    var inApp = Webflow.env();
     var listening;
 
     // MailChimp domains: list-manage.com + mirrors
@@ -1233,16 +980,14 @@
       alert('Oops! This page has improperly configured forms. Please contact your website administrator to fix this issue.');
     }, 100);
 
-    api.ready = function() {
+    api.ready = api.design = api.preview = function() {
       // Init forms
       init();
 
-      // Wire document events once
-      if (!listening) addListeners();
-    };
-
-    api.preview = api.design = function() {
-      init();
+      // Wire document events on published site only once
+      if (!inApp && !listening) {
+        addListeners();
+      }
     };
 
     function init() {
@@ -1500,36 +1245,72 @@
   });
   });
 
-  var webflowGplus = __commonjs(function (module) {
+  var webflowIxEvents = __commonjs(function (module) {
+  'use strict';
+
   /**
-   * Webflow: Google+ widget
+   * Webflow: IX Event triggers for other modules
    */
 
-  var Webflow = require$$0$1;
+  var $ = window.jQuery;
+  var api = {};
+  var eventQueue = [];
+  var namespace = '.w-ix';
 
-  Webflow.define('gplus', module.exports = function($) {
-    var $doc = $(document);
-    var api = {};
-    var loaded;
-
-    api.ready = function() {
-      // Load Google+ API on the front-end
-      if (!Webflow.env() && !loaded) init();
-    };
-
-    function init() {
-      $doc.find('.w-widget-gplus').length && load();
+  var eventTriggers = {
+    reset: function(i, el) {
+      el.__wf_intro = null;
+    },
+    intro: function(i, el) {
+      if (el.__wf_intro) return;
+      el.__wf_intro = true;
+      $(el).triggerHandler(api.types.INTRO);
+    },
+    outro: function(i, el) {
+      if (!el.__wf_intro) return;
+      el.__wf_intro = null;
+      $(el).triggerHandler(api.types.OUTRO);
     }
+  };
 
-    function load() {
-      loaded = true;
-      $.getScript('https://apis.google.com/js/plusone.js');
+  api.triggers = {};
+
+  api.types = {
+    INTRO: 'w-ix-intro' + namespace,
+    OUTRO: 'w-ix-outro' + namespace
+  };
+
+  // Trigger any events in queue + restore trigger methods
+  api.init = function() {
+    var count = eventQueue.length;
+    for (var i = 0; i < count; i++) {
+      var memo = eventQueue[i];
+      memo[0](0, memo[1]);
     }
+    eventQueue = [];
+    $.extend(api.triggers, eventTriggers);
+  };
 
-    // Export module
-    return api;
+  // Replace all triggers with async wrapper to queue events until init
+  api.async = function() {
+    for (var key in eventTriggers) {
+      var func = eventTriggers[key];
+      if (!eventTriggers.hasOwnProperty(key)) continue;
+
+      // Replace trigger method with async wrapper
+      api.triggers[key] = function(i, el) {
+        eventQueue.push([func, el]);
+      };
+    }
+  };
+
+  // Default triggers to async queue
+  api.async();
+
+  module.exports = api;
   });
-  });
+
+  var require$$0$3 = (webflowIxEvents && typeof webflowIxEvents === 'object' && 'default' in webflowIxEvents ? webflowIxEvents['default'] : webflowIxEvents);
 
   var webflowIx = __commonjs(function (module) {
   /**
@@ -1594,6 +1375,9 @@
     };
 
     api.ready = function() {
+      // Redirect IX init while in design/preview modes
+      if (inApp) return env('design') ? api.design() : api.preview();
+
       // Ready should only be used after destroy, as a way to re-init
       if (config && destroyed) {
         destroyed = false;
@@ -1918,6 +1702,9 @@
     function styleApp(el, data) {
       var _tram = tram(el);
 
+      // Exit early when data is empty to avoid clearing upstream
+      if ($.isEmptyObject(data)) return;
+
       // Get computed transition value
       el.css('transition', '');
       var computed = el.css('transition');
@@ -1958,660 +1745,6 @@
       }
       // If empty, return null for tram.set/stop compliance
       return found ? result : null;
-    }
-
-    // Export module
-    return api;
-  });
-  });
-
-  var webflowLightbox = __commonjs(function (module) {
-  /*eslint no-shadow: 0*/
-
-  /**
-   * Webflow: Lightbox component
-   */
-
-  var Webflow = require$$0$1;
-
-  function createLightbox(window, document, $) {
-    var tram = $.tram;
-    var isArray = Array.isArray;
-    var namespace = 'w-lightbox';
-    var prefix = namespace + '-';
-    var prefixRegex = /(^|\s+)/g;
-
-    // Array of objects describing items to be displayed.
-    var items = [];
-
-    // Index of the currently displayed item.
-    var currentIndex;
-
-    // Object holding references to jQuery wrapped nodes.
-    var $refs;
-
-    // Instance of Spinner
-    var spinner;
-
-    function lightbox(thing, index) {
-      items = isArray(thing) ? thing : [thing];
-
-      if (!$refs) {
-        lightbox.build();
-      }
-
-      if (items.length > 1) {
-        $refs.items = $refs.empty;
-
-        items.forEach(function (item) {
-          var $thumbnail = dom('thumbnail');
-          var $item = dom('item').append($thumbnail);
-
-          $refs.items = $refs.items.add($item);
-
-          loadImage(item.thumbnailUrl || item.url, function ($image) {
-            if ($image.prop('width') > $image.prop('height')) {
-              addClass($image, 'wide');
-            } else {
-              addClass($image, 'tall');
-            }
-            $thumbnail.append(addClass($image, 'thumbnail-image'));
-          });
-        });
-
-        $refs.strip.empty().append($refs.items);
-        addClass($refs.content, 'group');
-      }
-
-      tram(
-        // Focus the lightbox to receive keyboard events.
-        removeClass($refs.lightbox, 'hide').focus()
-      )
-        .add('opacity .3s')
-        .start({opacity: 1});
-
-      // Prevent document from scrolling while lightbox is active.
-      addClass($refs.html, 'noscroll');
-
-      return lightbox.show(index || 0);
-    }
-
-    /**
-     * Creates the DOM structure required by the lightbox.
-     */
-    lightbox.build = function () {
-      // In case `build` is called more than once.
-      lightbox.destroy();
-
-      $refs = {
-        html: $(document.documentElement),
-        // Empty jQuery object can be used to build new ones using `.add`.
-        empty: $()
-      };
-
-      $refs.arrowLeft = dom('control left inactive');
-      $refs.arrowRight = dom('control right inactive');
-      $refs.close = dom('control close');
-
-      $refs.spinner = dom('spinner');
-      $refs.strip = dom('strip');
-
-      spinner = new Spinner($refs.spinner, prefixed('hide'));
-
-      $refs.content = dom('content')
-        .append($refs.spinner, $refs.arrowLeft, $refs.arrowRight, $refs.close);
-
-      $refs.container = dom('container')
-        .append($refs.content, $refs.strip);
-
-      $refs.lightbox = dom('backdrop hide')
-        .append($refs.container);
-
-      // We are delegating events for performance reasons and also
-      // to not have to reattach handlers when images change.
-      $refs.strip.on('tap', selector('item'), itemTapHandler);
-      $refs.content
-        .on('swipe', swipeHandler)
-        .on('tap', selector('left'), handlerPrev)
-        .on('tap', selector('right'), handlerNext)
-        .on('tap', selector('close'), handlerHide)
-        .on('tap', selector('image, caption'), handlerNext);
-      $refs.container
-        .on('tap', selector('view, strip'), handlerHide)
-        // Prevent images from being dragged around.
-        .on('dragstart', selector('img'), preventDefault);
-      $refs.lightbox
-        .on('keydown', keyHandler)
-        // IE loses focus to inner nodes without letting us know.
-        .on('focusin', focusThis);
-
-      // The `tabindex` attribute is needed to enable non-input elements
-      // to receive keyboard events.
-      $('body').append($refs.lightbox.prop('tabIndex', 0));
-
-      return lightbox;
-    };
-
-    /**
-     * Dispose of DOM nodes created by the lightbox.
-     */
-    lightbox.destroy = function () {
-      if (!$refs) {
-        return;
-      }
-
-      // Event handlers are also removed.
-      removeClass($refs.html, 'noscroll');
-      $refs.lightbox.remove();
-      $refs = undefined;
-    };
-
-    /**
-     * Show a specific item.
-     */
-    lightbox.show = function (index) {
-      // Bail if we are already showing this item.
-      if (index === currentIndex) {
-        return;
-      }
-
-      var item = items[index];
-      if (!item) { return lightbox.hide(); }
-
-      var previousIndex = currentIndex;
-      currentIndex = index;
-      spinner.show();
-
-      // For videos, load an empty SVG with the video dimensions to preserve
-      // the video’s aspect ratio while being responsive.
-      var url = item.html && svgDataUri(item.width, item.height) || item.url;
-      loadImage(url, function ($image) {
-        // Make sure this is the last item requested to be shown since
-        // images can finish loading in a different order than they were
-        // requested in.
-        if (index !== currentIndex) {
-          return;
-        }
-
-        var $figure = dom('figure', 'figure').append(addClass($image, 'image'));
-        var $frame = dom('frame').append($figure);
-        var $newView = dom('view').append($frame);
-        var $html;
-        var isIframe;
-
-        if (item.html) {
-          $html = $(item.html);
-          isIframe = $html.is('iframe');
-
-          if (isIframe) {
-            $html.on('load', transitionToNewView);
-          }
-
-          $figure.append(addClass($html, 'embed'));
-        }
-
-        if (item.caption) {
-          $figure.append(dom('caption', 'figcaption').text(item.caption));
-        }
-
-        $refs.spinner.before($newView);
-
-        if (!isIframe) {
-          transitionToNewView();
-        }
-
-        function transitionToNewView() {
-          spinner.hide();
-
-          if (index !== currentIndex) {
-            $newView.remove();
-            return;
-          }
-
-
-          toggleClass($refs.arrowLeft, 'inactive', index <= 0);
-          toggleClass($refs.arrowRight, 'inactive', index >= items.length - 1);
-
-          if ($refs.view) {
-            tram($refs.view)
-              .add('opacity .3s')
-              .start({opacity: 0})
-              .then(remover($refs.view));
-
-            tram($newView)
-              .add('opacity .3s')
-              .add('transform .3s')
-              .set({x: index > previousIndex ? '80px' : '-80px'})
-              .start({opacity: 1, x: 0});
-          } else {
-            $newView.css('opacity', 1);
-          }
-
-          $refs.view = $newView;
-
-          if ($refs.items) {
-            // Mark proper thumbnail as active
-            addClass(removeClass($refs.items, 'active').eq(index), 'active');
-          }
-        }
-      });
-
-      return lightbox;
-    };
-
-    /**
-     * Hides the lightbox.
-     */
-    lightbox.hide = function () {
-      tram($refs.lightbox)
-        .add('opacity .3s')
-        .start({opacity: 0})
-        .then(hideLightbox);
-
-      return lightbox;
-    };
-
-    lightbox.prev = function () {
-      if (currentIndex > 0) {
-        lightbox.show(currentIndex - 1);
-      }
-    };
-
-    lightbox.next = function () {
-      if (currentIndex < items.length - 1) {
-        lightbox.show(currentIndex + 1);
-      }
-    };
-
-    function createHandler(action) {
-      return function (event) {
-        // We only care about events triggered directly on the bound selectors.
-        if (this !== event.target) {
-          return;
-        }
-
-        event.stopPropagation();
-        event.preventDefault();
-
-        action();
-      };
-    }
-
-    var handlerPrev = createHandler(lightbox.prev);
-    var handlerNext = createHandler(lightbox.next);
-    var handlerHide = createHandler(lightbox.hide);
-
-    var itemTapHandler = function(event) {
-      var index = $(this).index();
-
-      event.preventDefault();
-      lightbox.show(index);
-    };
-
-    var swipeHandler = function (event, data) {
-      // Prevent scrolling.
-      event.preventDefault();
-
-      if (data.direction === 'left') {
-        lightbox.next();
-      } else if (data.direction === 'right') {
-        lightbox.prev();
-      }
-    };
-
-    var focusThis = function () {
-      this.focus();
-    };
-
-    function preventDefault(event) {
-      event.preventDefault();
-    }
-
-    function keyHandler(event) {
-      var keyCode = event.keyCode;
-
-      // [esc]
-      if (keyCode === 27) {
-        lightbox.hide();
-
-      // [◀]
-      } else if (keyCode === 37) {
-        lightbox.prev();
-
-      // [▶]
-      } else if (keyCode === 39) {
-        lightbox.next();
-      }
-    }
-
-    function hideLightbox() {
-      // If the lightbox hasn't been destroyed already
-      if ($refs) {
-        removeClass($refs.html, 'noscroll');
-        addClass($refs.lightbox, 'hide');
-        $refs.strip.empty();
-        $refs.view && $refs.view.remove();
-
-        // Reset some stuff
-        removeClass($refs.content, 'group');
-        addClass($refs.arrowLeft, 'inactive');
-        addClass($refs.arrowRight, 'inactive');
-
-        currentIndex = $refs.view = undefined;
-      }
-    }
-
-    function loadImage(url, callback) {
-      var $image = dom('img', 'img');
-
-      $image.one('load', function () {
-        callback($image);
-      });
-
-      // Start loading image.
-      $image.attr('src', url);
-
-      return $image;
-    }
-
-    function remover($element) {
-      return function () {
-        $element.remove();
-      };
-    }
-
-    /**
-     * Spinner
-     */
-    function Spinner($spinner, className, delay) {
-      this.$element = $spinner;
-      this.className = className;
-      this.delay = delay || 200;
-      this.hide();
-    }
-
-    Spinner.prototype.show = function () {
-      var spinner = this;
-
-      // Bail if we are already showing the spinner.
-      if (spinner.timeoutId) {
-        return;
-      }
-
-      spinner.timeoutId = setTimeout(function () {
-        spinner.$element.removeClass(spinner.className);
-        delete spinner.timeoutId;
-      }, spinner.delay);
-    };
-
-    Spinner.prototype.hide = function () {
-      var spinner = this;
-      if (spinner.timeoutId) {
-        clearTimeout(spinner.timeoutId);
-        delete spinner.timeoutId;
-        return;
-      }
-
-      spinner.$element.addClass(spinner.className);
-    };
-
-    function prefixed(string, isSelector) {
-      return string.replace(prefixRegex, (isSelector ? ' .' : ' ') + prefix);
-    }
-
-    function selector(string) {
-      return prefixed(string, true);
-    }
-
-    /**
-     * jQuery.addClass with auto-prefixing
-     * @param  {jQuery} Element to add class to
-     * @param  {string} Class name that will be prefixed and added to element
-     * @return {jQuery}
-     */
-    function addClass($element, className) {
-      return $element.addClass(prefixed(className));
-    }
-
-    /**
-     * jQuery.removeClass with auto-prefixing
-     * @param  {jQuery} Element to remove class from
-     * @param  {string} Class name that will be prefixed and removed from element
-     * @return {jQuery}
-     */
-    function removeClass($element, className) {
-      return $element.removeClass(prefixed(className));
-    }
-
-    /**
-     * jQuery.toggleClass with auto-prefixing
-     * @param  {jQuery}  Element where class will be toggled
-     * @param  {string}  Class name that will be prefixed and toggled
-     * @param  {boolean} Optional boolean that determines if class will be added or removed
-     * @return {jQuery}
-     */
-    function toggleClass($element, className, shouldAdd) {
-      return $element.toggleClass(prefixed(className), shouldAdd);
-    }
-
-    /**
-     * Create a new DOM element wrapped in a jQuery object,
-     * decorated with our custom methods.
-     * @param  {string} className
-     * @param  {string} [tag]
-     * @return {jQuery}
-     */
-    function dom(className, tag) {
-      return addClass($(document.createElement(tag || 'div')), className);
-    }
-
-    function svgDataUri(width, height) {
-      var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + width + '" height="' + height + '"/>';
-      return 'data:image/svg+xml;charset=utf-8,' + encodeURI(svg);
-    }
-
-    // Compute some dimensions manually for iOS < 8, because of buggy support for VH.
-    // Also, Android built-in browser does not support viewport units.
-    (function () {
-      var ua = window.navigator.userAgent;
-      var iOSRegex = /(iPhone|iPad|iPod);[^OS]*OS (\d)/;
-      var iOSMatches = ua.match(iOSRegex);
-      var android = ua.indexOf('Android ') > -1 && ua.indexOf('Chrome') === -1;
-
-      if (!android && (!iOSMatches || iOSMatches[2] > 7)) {
-        return;
-      }
-
-      var styleNode = document.createElement('style');
-      document.head.appendChild(styleNode);
-      window.addEventListener('orientationchange', refresh, true);
-
-      function refresh() {
-        var vh = window.innerHeight;
-        var vw = window.innerWidth;
-        var content =
-          '.w-lightbox-content, .w-lightbox-view, .w-lightbox-view:before {' +
-            'height:' + vh + 'px' +
-          '}' +
-          '.w-lightbox-view {' +
-            'width:' + vw + 'px' +
-          '}' +
-          '.w-lightbox-group, .w-lightbox-group .w-lightbox-view, .w-lightbox-group .w-lightbox-view:before {' +
-            'height:' + (0.86 * vh) + 'px' +
-          '}' +
-          '.w-lightbox-image {' +
-            'max-width:' + vw + 'px;' +
-            'max-height:' + vh + 'px' +
-          '}' +
-          '.w-lightbox-group .w-lightbox-image {' +
-            'max-height:' + (0.86 * vh) + 'px' +
-          '}' +
-          '.w-lightbox-strip {' +
-            'padding: 0 ' + (0.01 * vh) + 'px' +
-          '}' +
-          '.w-lightbox-item {' +
-            'width:' + (0.1 * vh) + 'px;' +
-            'padding:' + (0.02 * vh) + 'px ' + (0.01 * vh) + 'px' +
-          '}' +
-          '.w-lightbox-thumbnail {' +
-            'height:' + (0.1 * vh) + 'px' +
-          '}' +
-          '@media (min-width: 768px) {' +
-            '.w-lightbox-content, .w-lightbox-view, .w-lightbox-view:before {' +
-              'height:' + (0.96 * vh) + 'px' +
-            '}' +
-            '.w-lightbox-content {' +
-              'margin-top:' + (0.02 * vh) + 'px' +
-            '}' +
-            '.w-lightbox-group, .w-lightbox-group .w-lightbox-view, .w-lightbox-group .w-lightbox-view:before {' +
-              'height:' + (0.84 * vh) + 'px' +
-            '}' +
-            '.w-lightbox-image {' +
-              'max-width:' + (0.96 * vw) + 'px;' +
-              'max-height:' + (0.96 * vh) + 'px' +
-            '}' +
-            '.w-lightbox-group .w-lightbox-image {' +
-              'max-width:' + (0.823 * vw) + 'px;' +
-              'max-height:' + (0.84 * vh) + 'px' +
-            '}' +
-          '}';
-
-        styleNode.textContent = content;
-      }
-
-      refresh();
-    })();
-
-    return lightbox;
-  }
-
-  Webflow.define('lightbox', module.exports = function($) {
-    var api = {};
-    var lightbox = createLightbox(window, document, $);
-    var $doc = $(document);
-    var $lightboxes;
-    var designer;
-    var inApp = Webflow.env();
-    var namespace = '.w-lightbox';
-    var groups;
-
-    // -----------------------------------
-    // Module methods
-
-    api.ready = api.design = api.preview = init;
-
-    // -----------------------------------
-    // Private methods
-
-    function init() {
-      designer = inApp && Webflow.env('design');
-
-      // Reset Lightbox
-      lightbox.destroy();
-
-      // Reset groups
-      groups = {};
-
-      // Find all instances on the page
-      $lightboxes = $doc.find(namespace);
-
-      // Instantiate all lighboxes
-      $lightboxes.webflowLightBox();
-    }
-
-    jQuery.fn.extend({
-      webflowLightBox: function() {
-        var $el = this;
-        $.each($el, function(i, el) {
-          // Store state in data
-          var data = $.data(el, namespace);
-          if (!data) {
-            data = $.data(el, namespace, {
-              el: $(el),
-              mode: 'images',
-              images: [],
-              embed: ''
-            });
-          }
-
-          // Remove old events
-          data.el.off(namespace);
-
-          // Set config from json script tag
-          configure(data);
-
-          // Add events based on mode
-          if (designer) {
-            data.el.on('setting' + namespace, configure.bind(null, data));
-          } else {
-            data.el
-              .on('tap' + namespace, tapHandler(data))
-              // Prevent page scrolling to top when clicking on lightbox triggers.
-              .on('click' + namespace, function (e) { e.preventDefault(); });
-          }
-        });
-      }
-    });
-
-    function configure(data) {
-      var json = data.el.children('.w-json').html();
-      var groupName;
-      var groupItems;
-
-      if (!json) {
-        data.items = [];
-        return;
-      }
-
-      try {
-        json = JSON.parse(json);
-      } catch (e) {
-        console.error('Malformed lightbox JSON configuration.', e);
-      }
-
-      supportOldLightboxJson(json);
-
-      groupName = json.group;
-
-      if (groupName) {
-        groupItems = groups[groupName];
-        if (!groupItems) {
-          groupItems = groups[groupName] = [];
-        }
-
-        data.items = groupItems;
-
-        if (json.items.length) {
-          data.index = groupItems.length;
-          groupItems.push.apply(groupItems, json.items);
-        }
-      } else {
-        data.items = json.items;
-      }
-    }
-
-    function tapHandler(data) {
-      return function () {
-        data.items.length && lightbox(data.items, data.index || 0);
-      };
-    }
-
-    function supportOldLightboxJson(data) {
-      if (data.images) {
-        data.images.forEach(function (item) {
-          item.type = 'image';
-        });
-        data.items = data.images;
-      }
-
-      if (data.embed) {
-        data.embed.type = 'video';
-        data.items = [data.embed];
-      }
-
-      if (data.groupId) {
-        data.group = data.groupId;
-      }
     }
 
     // Export module
@@ -2719,226 +1852,6 @@
       if (add && exists) return;
       if (!add && !exists) return;
       add ? $elem.addClass(className) : $elem.removeClass(className);
-    }
-
-    // Export module
-    return api;
-  });
-  });
-
-  var webflowMaps = __commonjs(function (module) {
-  /**
-   * Webflow: Maps widget
-   */
-
-  var Webflow = require$$0$1;
-
-  Webflow.define('maps', module.exports = function($, _) {
-    var api = {};
-    var $doc = $(document);
-    var google = null;
-    var $maps;
-    var namespace = '.w-widget-map';
-    var apiKey = 'AIzaSyBks0W0NawnPju70JQS5XXPOTTrguDQjWE';
-
-    // -----------------------------------
-    // Module methods
-
-    api.ready = function() {
-      // Init Maps on the front-end
-      if (!Webflow.env()) initMaps();
-    };
-
-    api.preview = function() {
-      // Update active map nodes
-      $maps = $doc.find(namespace);
-      // Listen for resize events
-      Webflow.resize.off(triggerRedraw);
-      if ($maps.length) {
-        Webflow.resize.on(triggerRedraw);
-        triggerRedraw();
-      }
-    };
-
-    api.design = function() {
-      // Update active map nodes
-      $maps = $doc.find(namespace);
-      // Stop listening for resize events
-      Webflow.resize.off(triggerRedraw);
-      // Redraw to account for page changes
-      $maps.length && _.defer(triggerRedraw);
-    };
-
-    api.destroy = removeListeners;
-
-    // -----------------------------------
-    // Private methods
-
-    // Trigger redraw in designer or preview mode
-    function triggerRedraw() {
-      if ($maps.length && Webflow.app) {
-        $maps.each(Webflow.app.redrawElement);
-      }
-    }
-
-    function initMaps() {
-      $maps = $doc.find(namespace);
-      if (!$maps.length) return;
-
-      if (google === null) {
-        $.getScript('https://maps.googleapis.com/maps/api/js?v=3.exp&sensor=false&callback=_wf_maps_loaded&key=' + apiKey);
-        window._wf_maps_loaded = mapsLoaded;
-      } else {
-        mapsLoaded();
-      }
-
-      function mapsLoaded() {
-        window._wf_maps_loaded = function() {};
-        google = window.google;
-        $maps.each(renderMap);
-        removeListeners();
-        addListeners();
-      }
-    }
-
-    function removeListeners() {
-      Webflow.resize.off(resizeMaps);
-      Webflow.redraw.off(resizeMaps);
-    }
-
-    function addListeners() {
-      Webflow.resize.on(resizeMaps);
-      Webflow.redraw.on(resizeMaps);
-    }
-
-    // Render map onto each element
-    function renderMap(i, el) {
-      var data = $(el).data();
-      getState(el, data);
-    }
-
-    function resizeMaps() {
-      $maps.each(resizeMap);
-    }
-
-    // Resize map when window changes
-    function resizeMap(i, el) {
-      var state = getState(el);
-      google.maps.event.trigger(state.map, 'resize');
-      state.setMapPosition();
-    }
-
-    // Store state on element data
-    var store = 'w-widget-map';
-    function getState(el, data) {
-
-      var state = $.data(el, store);
-      if (state) return state;
-
-      var $el = $(el);
-      state = $.data(el, store, {
-        // Default options
-        latLng: '51.511214,-0.119824',
-        tooltip: '',
-        style: 'roadmap',
-        zoom: 12,
-
-        // Marker
-        marker: new google.maps.Marker({
-          draggable: false
-        }),
-
-        // Tooltip infowindow
-        infowindow: new google.maps.InfoWindow({
-          disableAutoPan: true
-        })
-      });
-
-      // LatLng center point
-      var latLng = data.widgetLatlng || state.latLng;
-      state.latLng = latLng;
-      var coords = latLng.split(',');
-      var latLngObj = new google.maps.LatLng(coords[0], coords[1]);
-      state.latLngObj = latLngObj;
-
-      // Disable touch events
-      var mapDraggable = !(Webflow.env.touch && data.disableTouch);
-
-      // Map instance
-      state.map = new google.maps.Map(el, {
-        center: state.latLngObj,
-        zoom: state.zoom,
-        maxZoom: 18,
-        mapTypeControl: false,
-        panControl: false,
-        streetViewControl: false,
-        scrollwheel: !data.disableScroll,
-        draggable: mapDraggable,
-        zoomControl: true,
-        zoomControlOptions: {
-          style: google.maps.ZoomControlStyle.SMALL
-        },
-        mapTypeId: state.style
-      });
-      state.marker.setMap(state.map);
-
-      // Set map position and offset
-      state.setMapPosition = function() {
-        state.map.setCenter(state.latLngObj);
-        var offsetX = 0;
-        var offsetY = 0;
-        var padding = $el.css(['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft']);
-        offsetX -= parseInt(padding.paddingLeft, 10);
-        offsetX += parseInt(padding.paddingRight, 10);
-        offsetY -= parseInt(padding.paddingTop, 10);
-        offsetY += parseInt(padding.paddingBottom, 10);
-        if (offsetX || offsetY) {
-          state.map.panBy(offsetX, offsetY);
-        }
-        $el.css('position', ''); // Remove injected position
-      };
-
-      // Fix position after first tiles have loaded
-      google.maps.event.addListener(state.map, 'tilesloaded', function() {
-        google.maps.event.clearListeners(state.map, 'tilesloaded');
-        state.setMapPosition();
-      });
-
-      // Set initial position
-      state.setMapPosition();
-      state.marker.setPosition(state.latLngObj);
-      state.infowindow.setPosition(state.latLngObj);
-
-      // Draw tooltip
-      var tooltip = data.widgetTooltip;
-      if (tooltip) {
-        state.tooltip = tooltip;
-        state.infowindow.setContent(tooltip);
-        if (!state.infowindowOpen) {
-          state.infowindow.open(state.map, state.marker);
-          state.infowindowOpen = true;
-        }
-      }
-
-      // Map style - options.style
-      var style = data.widgetStyle;
-      if (style) {
-        state.map.setMapTypeId(style);
-      }
-
-      // Zoom - options.zoom
-      var zoom = data.widgetZoom;
-      if (zoom != null) {
-        state.zoom = zoom;
-        state.map.setZoom(Number(zoom));
-      }
-
-      // Click marker to open in google maps
-      google.maps.event.addListener(state.marker, 'click', function() {
-        window.open('https://maps.google.com/?z=' + state.zoom + '&daddr=' + state.latLng);
-      });
-
-      return state;
     }
 
     // Export module
@@ -3481,6 +2394,7 @@
     // Module methods
 
     api.ready = function() {
+      designer = Webflow.env('design');
       init();
     };
 
@@ -3963,224 +2877,6 @@
         return true;
       }
       return false;
-    }
-
-    // Export module
-    return api;
-  });
-  });
-
-  var webflowTabs = __commonjs(function (module) {
-  /**
-   * Webflow: Tabs component
-   */
-
-  var Webflow = require$$0$1;
-  var IXEvents = require$$0$3;
-
-  Webflow.define('tabs', module.exports = function($) {
-    var api = {};
-    var tram = $.tram;
-    var $doc = $(document);
-    var $tabs;
-    var design;
-    var env = Webflow.env;
-    var safari = env.safari;
-    var inApp = env();
-    var tabAttr = 'data-w-tab';
-    var namespace = '.w-tabs';
-    var linkCurrent = 'w--current';
-    var tabActive = 'w--tab-active';
-    var ix = IXEvents.triggers;
-    var inRedraw = false;
-
-    // -----------------------------------
-    // Module methods
-
-    api.ready = api.design = api.preview = init;
-
-    api.redraw = function() {
-      inRedraw = true;
-      init();
-      inRedraw = false;
-    };
-
-    api.destroy = function() {
-      $tabs = $doc.find(namespace);
-      if (!$tabs.length) return;
-      $tabs.each(resetIX);
-      removeListeners();
-    };
-
-    // -----------------------------------
-    // Private methods
-
-    function init() {
-      design = inApp && Webflow.env('design');
-
-      // Find all instances on the page
-      $tabs = $doc.find(namespace);
-      if (!$tabs.length) return;
-      $tabs.each(build);
-      if (Webflow.env('preview') && !inRedraw) {
-        $tabs.each(resetIX);
-      }
-
-      removeListeners();
-      addListeners();
-    }
-
-    function removeListeners() {
-      Webflow.redraw.off(api.redraw);
-    }
-
-    function addListeners() {
-      Webflow.redraw.on(api.redraw);
-    }
-
-    function resetIX(i, el) {
-      var data = $.data(el, namespace);
-      if (!data) return;
-      data.links && data.links.each(ix.reset);
-      data.panes && data.panes.each(ix.reset);
-    }
-
-    function build(i, el) {
-      var $el = $(el);
-
-      // Store state in data
-      var data = $.data(el, namespace);
-      if (!data) data = $.data(el, namespace, { el: $el, config: {} });
-      data.current = null;
-      data.menu = $el.children('.w-tab-menu');
-      data.links = data.menu.children('.w-tab-link');
-      data.content = $el.children('.w-tab-content');
-      data.panes = data.content.children('.w-tab-pane');
-
-      // Remove old events
-      data.el.off(namespace);
-      data.links.off(namespace);
-
-      // Set config from data attributes
-      configure(data);
-
-      // Wire up events when not in design mode
-      if (!design) {
-        data.links.on('click' + namespace, linkSelect(data));
-
-        // Trigger first intro event from current tab
-        var $link = data.links.filter('.' + linkCurrent);
-        var tab = $link.attr(tabAttr);
-        tab && changeTab(data, { tab: tab, immediate: true });
-      }
-    }
-
-    function configure(data) {
-      var config = {};
-
-      // Set config options from data attributes
-      config.easing = data.el.attr('data-easing') || 'ease';
-
-      var intro = parseInt(data.el.attr('data-duration-in'), 10);
-      intro = config.intro = intro === intro ? intro : 0;
-
-      var outro = parseInt(data.el.attr('data-duration-out'), 10);
-      outro = config.outro = outro === outro ? outro : 0;
-
-      config.immediate = !intro && !outro;
-
-      // Store config in data
-      data.config = config;
-    }
-
-    function linkSelect(data) {
-      return function(evt) {
-        var tab = evt.currentTarget.getAttribute(tabAttr);
-        tab && changeTab(data, { tab: tab });
-      };
-    }
-
-    function changeTab(data, options) {
-      options = options || {};
-
-      var config = data.config;
-      var easing = config.easing;
-      var tab = options.tab;
-
-      // Don't select the same tab twice
-      if (tab === data.current) return;
-      data.current = tab;
-
-      // Select the current link
-      data.links.each(function(i, el) {
-        var $el = $(el);
-        if (el.getAttribute(tabAttr) === tab) $el.addClass(linkCurrent).each(ix.intro);
-        else if ($el.hasClass(linkCurrent)) $el.removeClass(linkCurrent).each(ix.outro);
-      });
-
-      // Find the new tab panes and keep track of previous
-      var targets = [];
-      var previous = [];
-      data.panes.each(function(i, el) {
-        var $el = $(el);
-        if (el.getAttribute(tabAttr) === tab) {
-          targets.push(el);
-        } else if ($el.hasClass(tabActive)) {
-          previous.push(el);
-        }
-      });
-
-      var $targets = $(targets);
-      var $previous = $(previous);
-
-      // Switch tabs immediately and bypass transitions
-      if (options.immediate || config.immediate) {
-        $targets.addClass(tabActive).each(ix.intro);
-        $previous.removeClass(tabActive);
-        // Redraw to benefit components in the hidden tab pane
-        // But only if not currently in the middle of a redraw
-        if (!inRedraw) Webflow.redraw.up();
-        return;
-      }
-
-      // Fade out the currently active tab before intro
-      if ($previous.length && config.outro) {
-        $previous.each(ix.outro);
-        tram($previous)
-          .add('opacity ' + config.outro + 'ms ' + easing, { fallback: safari })
-          .start({ opacity: 0 })
-          .then(intro);
-      } else {
-        // Skip the outro and play intro
-        intro();
-      }
-
-      // Fade in the new target
-      function intro() {
-        // Clear previous active class + styles touched by tram
-        // We cannot remove the whole inline style because it could be dynamically bound
-        $previous.removeClass(tabActive).css({
-          opacity: '',
-          transition: '',
-          transform: '',
-          width: '',
-          height: ''
-        });
-
-        // Add active class to new target
-        $targets.addClass(tabActive).each(ix.intro);
-        Webflow.redraw.up();
-
-        // Set opacity immediately if intro is zero
-        if (!config.intro) return tram($targets).set({ opacity: 1 });
-
-        // Otherwise fade in opacity
-        tram($targets)
-          .set({ opacity: 0 })
-          .redraw()
-          .add('opacity ' + config.intro + 'ms ' + easing, { fallback: safari })
-          .start({ opacity: 1 });
-      }
     }
 
     // Export module
